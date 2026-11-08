@@ -1,0 +1,24 @@
+{
+  "name": "@aerotrace/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AeroTrace HTTP and WebSocket API (Fastify).",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aerotrace/contracts": "*",
+    "fastify": "^5.12.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "pino-pretty": "^13.0.0",
+    "tsx": "^4.20.0",
+    "vitest": "^5.1.0"
+  }
+}
