@@ -72,14 +72,7 @@ Deep links address missions and reports by identifier. Invalid identifiers show 
 
 ```ts
 type MissionStatus =
-  | 'draft'
-  | 'ready'
-  | 'active'
-  | 'paused'
-  | 'returning_home'
-  | 'completed'
-  | 'aborted'
-  | 'failed';
+  'draft' | 'ready' | 'active' | 'paused' | 'returning_home' | 'completed' | 'aborted' | 'failed';
 
 type Waypoint = {
   id: string;
@@ -117,19 +110,19 @@ Timestamps use ISO 8601 UTC strings. Values carry units in their names. Shared s
 
 Base path: `/api/v1`
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | `/health` | Service health and version |
-| GET | `/missions` | List missions |
-| POST | `/missions` | Create a draft mission |
-| GET | `/missions/:id` | Get one mission |
-| PATCH | `/missions/:id` | Update permitted draft fields |
-| DELETE | `/missions/:id` | Delete a draft mission |
-| POST | `/missions/:id/estimate` | Calculate estimates |
-| POST | `/missions/:id/start` | Start a simulation |
-| POST | `/missions/:id/commands` | Pause, resume, abort, or return home |
-| GET | `/flights/:id` | Get a completed report |
-| GET | `/flights/:id/verify` | Optional integrity verification |
+| Method | Path                     | Purpose                              |
+| ------ | ------------------------ | ------------------------------------ |
+| GET    | `/health`                | Service health and version           |
+| GET    | `/missions`              | List missions                        |
+| POST   | `/missions`              | Create a draft mission               |
+| GET    | `/missions/:id`          | Get one mission                      |
+| PATCH  | `/missions/:id`          | Update permitted draft fields        |
+| DELETE | `/missions/:id`          | Delete a draft mission               |
+| POST   | `/missions/:id/estimate` | Calculate estimates                  |
+| POST   | `/missions/:id/start`    | Start a simulation                   |
+| POST   | `/missions/:id/commands` | Pause, resume, abort, or return home |
+| GET    | `/flights/:id`           | Get a completed report               |
+| GET    | `/flights/:id/verify`    | Optional integrity verification      |
 
 WebSocket subscriptions stream telemetry and mission events for one mission. The protocol will define an initial snapshot, ordered sequence numbers, heartbeat, errors, reconnection, and terminal messages.
 

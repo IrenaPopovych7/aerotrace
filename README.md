@@ -10,14 +10,14 @@ You plan a drone mission by placing waypoints on a map. AeroTrace estimates dist
 
 ## Project status
 
-🚧 **Early stage: specification complete, implementation starting.**
+🚧 **Foundation in place: workspace, shared contracts, API shell, CI.**
 
-| Area | State |
-| --- | --- |
-| Product & technical spec | ✅ Draft v0.2 ([`docs/SPEC.md`](docs/SPEC.md)) |
+| Area                                       | State                                           |
+| ------------------------------------------ | ----------------------------------------------- |
+| Product & technical spec                   | ✅ Draft v0.2 ([`docs/SPEC.md`](docs/SPEC.md))  |
 | Delivery backlog (25 issues, 6 milestones) | ✅ Draft ([`docs/BACKLOG.md`](docs/BACKLOG.md)) |
-| Expo app shell | 🟡 Expo starter template |
-| Node.js API, shared contracts, simulator | ⏳ Not started |
+| Expo app shell                             | 🟡 Expo starter template                        |
+| Node.js API, shared contracts, simulator   | ⏳ Not started                                  |
 
 The goal is a reliable **60–90 second live demo** at Web Summit.
 
@@ -43,17 +43,17 @@ The goal is a reliable **60–90 second live demo** at Web Summit.
 5. Watch live telemetry over WebSocket.
 6. Trigger a low-battery or connection-loss event.
 7. Complete the mission or return home, then open the flight report.
-8. *(Optional)* Verify the report with a QR link and cryptographic hash.
+8. _(Optional)_ Verify the report with a QR link and cryptographic hash.
 
 ## Tech stack
 
-| Layer | Technology |
-| --- | --- |
-| Mobile / web client | Expo, React Native, Expo Router, React Query, TypeScript |
-| API | Node.js, Fastify, TypeScript |
-| Real-time | WebSockets (snapshot, ordered sequence numbers, heartbeat, reconnection) |
-| Contracts | Shared runtime schemas with inferred TypeScript types |
-| Quality | Strict TypeScript, linting, tests and CI on pull requests |
+| Layer               | Technology                                                               |
+| ------------------- | ------------------------------------------------------------------------ |
+| Mobile / web client | Expo, React Native, Expo Router, React Query, TypeScript                 |
+| API                 | Node.js, Fastify, TypeScript                                             |
+| Real-time           | WebSockets (snapshot, ordered sequence numbers, heartbeat, reconnection) |
+| Contracts           | Shared runtime schemas with inferred TypeScript types                    |
+| Quality             | Strict TypeScript, linting, tests and CI on pull requests                |
 
 ## Architecture
 
@@ -78,47 +78,63 @@ aerotrace/
 
 Base path: `/api/v1`
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | `/health` | Service health and version |
-| GET / POST | `/missions` | List missions / create a draft |
-| GET / PATCH / DELETE | `/missions/:id` | Read, update or delete a draft |
-| POST | `/missions/:id/estimate` | Calculate estimates |
-| POST | `/missions/:id/start` | Start a simulation |
-| POST | `/missions/:id/commands` | Pause, resume, abort or return home |
-| GET | `/flights/:id` | Get a completed flight report |
-| GET | `/flights/:id/verify` | *(Optional)* Integrity verification |
+| Method               | Path                     | Purpose                             |
+| -------------------- | ------------------------ | ----------------------------------- |
+| GET                  | `/health`                | Service health and version          |
+| GET / POST           | `/missions`              | List missions / create a draft      |
+| GET / PATCH / DELETE | `/missions/:id`          | Read, update or delete a draft      |
+| POST                 | `/missions/:id/estimate` | Calculate estimates                 |
+| POST                 | `/missions/:id/start`    | Start a simulation                  |
+| POST                 | `/missions/:id/commands` | Pause, resume, abort or return home |
+| GET                  | `/flights/:id`           | Get a completed flight report       |
+| GET                  | `/flights/:id/verify`    | _(Optional)_ Integrity verification |
 
 ## Getting started
 
-> These steps run the **current Expo starter**. They will change once the repository becomes a workspace (backlog issue #4).
-
-**Prerequisites:** Node.js (LTS) and npm. To run on a device, install the [Expo Go](https://expo.dev/go) app or set up an iOS simulator or Android emulator.
+**Prerequisites:** Node.js 22 (see `.nvmrc`) and npm. To run on a device, use an iOS simulator, an Android emulator, or a phone with [Expo Go](https://expo.dev/go). Once the MapLibre map lands (#12), native runs need an [Expo development build](https://docs.expo.dev/develop/development-builds/introduction/) instead of Expo Go.
 
 ```bash
 git clone https://github.com/IrenaPopovych7/aerotrace.git
 cd aerotrace
 npm install
+
+npm run dev:api    # API on http://localhost:3000 → try /api/v1/health
 npm start          # Expo dev server; press i / a / w for iOS, Android or web
 ```
 
-Other scripts:
+API settings are environment variables, validated at startup. See [`apps/api/.env.example`](apps/api/.env.example).
 
-```bash
-npm run ios
-npm run android
-npm run web
-```
+### Workspace scripts
+
+| Command                                         | What it does                              |
+| ----------------------------------------------- | ----------------------------------------- |
+| `npm start` / `npm run web` / `ios` / `android` | Run the Expo app                          |
+| `npm run dev:api`                               | Run the API with reload on change         |
+| `npm run lint`                                  | ESLint across the workspace               |
+| `npm run format` / `format:check`               | Prettier                                  |
+| `npm run typecheck`                             | Strict TypeScript in every package        |
+| `npm test`                                      | Vitest (API, contracts) and Jest (mobile) |
+| `npm run check`                                 | Everything CI runs, in order              |
+
+### Packages
+
+| Package                | Path                 | Depends on              |
+| ---------------------- | -------------------- | ----------------------- |
+| `@aerotrace/contracts` | `packages/contracts` | `zod` only, no app code |
+| `@aerotrace/api`       | `apps/api`           | contracts               |
+| `@aerotrace/mobile`    | `apps/mobile`        | contracts               |
+
+Dependencies point one way: apps depend on contracts, never on each other.
 
 ## Roadmap
 
 The work is planned as thin vertical slices, each crossing UI, API, validation and tests. Details and acceptance criteria are in [`docs/BACKLOG.md`](docs/BACKLOG.md).
 
 - [ ] **M0 — Product definition:** spec, mission and simulation rules, screen flows
-- [ ] **M1 — Engineering foundation:** npm workspace, lint, tests and CI, Fastify API shell, Expo Router, design tokens
+- [ ] **M1 — Engineering foundation** _(#4–#6 done)_: npm workspace, lint, tests and CI, Fastify API shell, Expo Router, design tokens
 - [ ] **M2 — Mission planning:** shared schemas and state machine, mission CRUD API, mission list, waypoint planner, estimates
 - [ ] **M3 — Live simulation:** deterministic simulator, WebSocket streaming, live map and instruments, failure-scenario demo mode
-- [ ] **M4 — Flight reports:** persisted reports, report screen, *(optional)* hash and QR verification, *(optional)* test-network anchoring
+- [ ] **M4 — Flight reports:** persisted reports, report screen, _(optional)_ hash and QR verification, _(optional)_ test-network anchoring
 - [ ] **M5 — Demo readiness:** offline resilience, accessibility and performance pass, deployment, Web Summit rehearsal
 
 **First release:** issues 1–19 and 22–25. The Web3 issues (20–21) are optional and can be removed without breaking the core product.
@@ -134,4 +150,6 @@ The work is planned as thin vertical slices, each crossing UI, API, validation a
 ## Documentation
 
 - [Product & technical specification](docs/SPEC.md)
+- [Mission and simulation rules](docs/RULES.md)
 - [Implementation backlog](docs/BACKLOG.md)
+- [Architecture decisions](docs/decisions/)
