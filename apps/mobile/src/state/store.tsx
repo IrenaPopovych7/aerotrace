@@ -1,4 +1,12 @@
-import { nextStatus, type Mission, type MissionStatus, type Waypoint } from '@aerotrace/contracts';
+import {
+  DEFAULT_UAV_ID,
+  getUavProfile,
+  nextStatus,
+  type Mission,
+  type MissionStatus,
+  type UavId,
+  type Waypoint,
+} from '@aerotrace/contracts';
 import {
   createContext,
   useCallback,
@@ -20,7 +28,13 @@ function load(): Persisted {
     const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Persisted;
-      if (Array.isArray(parsed.missions) && Array.isArray(parsed.flights)) return parsed;
+      if (Array.isArray(parsed.missions) && Array.isArray(parsed.flights)) {
+        // Missions saved before UAV types existed fly as the default type.
+        return {
+          ...parsed,
+          missions: parsed.missions.map((m) => ({ ...m, uavId: getUavProfile(m.uavId).id })),
+        };
+      }
     }
   } catch {
     // Storage can be missing or blocked; the demo still works in memory.
@@ -46,6 +60,7 @@ type Store = {
   createMission: () => Mission;
   renameMission: (id: string, name: string) => void;
   setWaypoints: (id: string, waypoints: Waypoint[]) => void;
+  setUav: (id: string, uavId: UavId) => void;
   setStatus: (id: string, status: MissionStatus) => void;
   startMission: (id: string) => boolean;
   saveFlight: (report: FlightReport) => void;
@@ -78,6 +93,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           id: newId('m'),
           name: `Mission ${data.missions.length + 1}`,
           status: 'draft',
+          uavId: DEFAULT_UAV_ID,
           waypoints: [],
           createdAt: now(),
           updatedAt: now(),
@@ -94,6 +110,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 // Any edit to a ready mission sends it back to draft (RULES.md §5).
                 status: m.status === 'ready' ? (nextStatus('ready', 'edit') ?? 'draft') : m.status,
                 waypoints: waypoints.map((w, order) => ({ ...w, order })),
+              }
+            : m,
+        ),
+      setUav: (id, uavId) =>
+        updateMission(id, (m) =>
+          editable(m)
+            ? {
+                ...m,
+                uavId,
+                status: m.status === 'ready' ? (nextStatus('ready', 'edit') ?? 'draft') : m.status,
               }
             : m,
         ),

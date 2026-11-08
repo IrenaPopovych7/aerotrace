@@ -3,6 +3,7 @@ import type {
   MissionEvent,
   MissionStatus,
   ReturnHomeCause,
+  UavId,
   Waypoint,
 } from '@aerotrace/contracts';
 
@@ -17,6 +18,8 @@ export type FlightReport = {
   id: string;
   missionId: string;
   missionName: string;
+  /** Optional for reports saved before UAV types existed. */
+  uavId?: UavId;
   status: Extract<MissionStatus, 'completed' | 'aborted' | 'failed'>;
   startedAt: string;
   endedAt: string;

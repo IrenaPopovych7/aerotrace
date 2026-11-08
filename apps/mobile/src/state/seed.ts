@@ -23,6 +23,7 @@ export function seedMissions(): Mission[] {
       id: 'riverfront-survey',
       name: 'Riverfront survey',
       status: 'ready',
+      uavId: 'surveyor',
       createdAt: at,
       updatedAt: at,
       waypoints: [
@@ -37,6 +38,7 @@ export function seedMissions(): Mission[] {
       id: 'oceanario-loop',
       name: 'Oceanário loop',
       status: 'draft',
+      uavId: 'scout',
       createdAt: at,
       updatedAt: at,
       waypoints: [

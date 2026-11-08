@@ -103,6 +103,7 @@ function toReport(mission: Mission, snap: SimulatorSnapshot, startedAt: string):
     id: newId('f'),
     missionId: mission.id,
     missionName: mission.name,
+    uavId: mission.uavId,
     status: snap.status as FlightReport['status'],
     startedAt,
     endedAt: new Date(Date.parse(startedAt) + snap.elapsedSeconds * 1000).toISOString(),

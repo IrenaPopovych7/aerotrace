@@ -5,3 +5,4 @@ export * from './geo';
 export * from './flightPlan';
 export * from './estimate';
 export * from './simulator';
+export * from './uav';

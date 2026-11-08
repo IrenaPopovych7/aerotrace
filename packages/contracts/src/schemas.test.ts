@@ -14,8 +14,12 @@ const validMission = {
 };
 
 describe('MissionSchema', () => {
-  it('accepts a valid mission', () => {
-    expect(MissionSchema.parse(validMission)).toEqual(validMission);
+  it('accepts a valid mission and defaults the UAV for older missions', () => {
+    expect(MissionSchema.parse(validMission)).toEqual({ ...validMission, uavId: 'surveyor' });
+  });
+
+  it('rejects an unknown UAV type', () => {
+    expect(MissionSchema.safeParse({ ...validMission, uavId: 'jumbo' }).success).toBe(false);
   });
 
   it('rejects unexpected fields', () => {

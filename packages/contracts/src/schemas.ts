@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DEFAULT_UAV_ID, UavIdSchema } from './uav';
 
 export const MissionStatusSchema = z.enum([
   'draft',
@@ -30,6 +31,8 @@ export const MissionSchema = z
     id: z.string().min(1),
     name: z.string().trim().min(1).max(80),
     status: MissionStatusSchema,
+    /** Airframe that flies this mission. Older missions without it use the default. */
+    uavId: UavIdSchema.default(DEFAULT_UAV_ID),
     waypoints: z.array(WaypointSchema),
     createdAt: IsoDateTime,
     updatedAt: IsoDateTime,

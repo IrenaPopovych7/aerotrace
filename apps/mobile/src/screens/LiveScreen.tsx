@@ -1,4 +1,4 @@
-import { canTransition, isTerminal, RULES } from '@aerotrace/contracts';
+import { canTransition, getUavProfile, isTerminal, RULES } from '@aerotrace/contracts';
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { MissionMap } from '../map/MissionMap';
@@ -20,6 +20,7 @@ import {
 } from '../ui/primitives';
 import { Timeline } from '../ui/Timeline';
 import { useTheme } from '../ui/theme';
+import { uavSpecLine } from '../ui/UavPicker';
 
 const SPEEDS = [1, 10, 20];
 
@@ -99,6 +100,9 @@ export function LiveScreen({ id, navigate }: { id: string; navigate: (r: Route) 
       </Row>
       <Txt variant="title" role="header">
         {mission.name}
+      </Txt>
+      <Txt variant="muted">
+        {getUavProfile(mission.uavId).name} · {uavSpecLine(getUavProfile(mission.uavId))}
       </Txt>
 
       {status === 'returning_home' && cause && cause !== 'route_finished' && !snapshot.aborting && (

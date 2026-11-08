@@ -1,3 +1,4 @@
+import { getUavProfile } from '@aerotrace/contracts';
 import { useState } from 'react';
 import { MissionMap } from '../map/MissionMap';
 import type { Route } from '../navigation';
@@ -15,6 +16,7 @@ import {
   Txt,
 } from '../ui/primitives';
 import { Timeline } from '../ui/Timeline';
+import { uavSpecLine } from '../ui/UavPicker';
 
 const CAUSE: Record<string, string> = {
   operator: 'Operator ordered return home',
@@ -58,6 +60,9 @@ export function ReportScreen({ id, navigate }: { id: string; navigate: (r: Route
         {started.toLocaleDateString()}{' '}
         {started.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ·{' '}
         {report.returnHomeCause ? CAUSE[report.returnHomeCause] : 'Ended by abort'}
+      </Txt>
+      <Txt variant="muted">
+        UAV: {getUavProfile(report.uavId).name} · {uavSpecLine(getUavProfile(report.uavId))}
       </Txt>
 
       <Row>

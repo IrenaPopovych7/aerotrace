@@ -2,6 +2,7 @@ import { buildFlightPlan, phaseBatteryPercent, sortedWaypoints } from './flightP
 import { haversineMeters, roundHalfAway } from './geo';
 import { RULES } from './rules';
 import type { Waypoint } from './schemas';
+import { getUavProfile, type UavProfile } from './uav';
 
 export type EstimateIssue = {
   code:
@@ -107,10 +108,13 @@ function routeIssues(ordered: Waypoint[]): EstimateIssue[] {
  * Distance, duration and battery for the full flight (take-off → waypoints → home → landing).
  * The same function runs in the planner and on the server (RULES.md §4).
  */
-export function estimateMission(waypoints: readonly Waypoint[]): MissionEstimate {
+export function estimateMission(
+  waypoints: readonly Waypoint[],
+  uav: UavProfile = getUavProfile(null),
+): MissionEstimate {
   const ordered = sortedWaypoints(waypoints);
   const issues = routeIssues(ordered);
-  const phases = buildFlightPlan(ordered);
+  const phases = buildFlightPlan(ordered, uav);
 
   let distance = 0;
   let duration = 0;
@@ -118,7 +122,7 @@ export function estimateMission(waypoints: readonly Waypoint[]): MissionEstimate
   for (const phase of phases) {
     distance += phase.distanceMeters;
     duration += phase.durationSeconds;
-    used += phaseBatteryPercent(phase);
+    used += phaseBatteryPercent(phase, uav);
   }
   const remaining = battery.startPercent - used;
 

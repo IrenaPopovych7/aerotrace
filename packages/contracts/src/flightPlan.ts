@@ -1,6 +1,7 @@
 import { haversineMeters, type Position3D } from './geo';
 import { RULES } from './rules';
 import type { Waypoint } from './schemas';
+import { UAV_PROFILES, DEFAULT_UAV_ID, type UavProfile } from './uav';
 
 export type PhaseKind = 'climbing' | 'cruising' | 'hovering' | 'descending';
 
@@ -15,10 +16,13 @@ export type FlightPhase = {
   arrivesAtWaypoint?: number;
 };
 
-const { cruiseSpeedMetersPerSecond, climbRateMetersPerSecond, descentRateMetersPerSecond } =
-  RULES.flight;
+const DEFAULT_PROFILE = UAV_PROFILES[DEFAULT_UAV_ID];
 
-function vertical(from: Position3D, toAltitude: number): FlightPhase | null {
+function vertical(
+  from: Position3D,
+  toAltitude: number,
+  uav: UavProfile = DEFAULT_PROFILE,
+): FlightPhase | null {
   const delta = toAltitude - from.altitudeMeters;
   if (Math.abs(delta) < 1e-9) return null;
   const climbing = delta > 0;
@@ -27,19 +31,23 @@ function vertical(from: Position3D, toAltitude: number): FlightPhase | null {
     from,
     to: { ...from, altitudeMeters: toAltitude },
     durationSeconds:
-      Math.abs(delta) / (climbing ? climbRateMetersPerSecond : descentRateMetersPerSecond),
+      Math.abs(delta) / (climbing ? uav.climbRateMetersPerSecond : uav.descentRateMetersPerSecond),
     distanceMeters: Math.abs(delta),
   };
 }
 
-function horizontal(from: Position3D, to: Position3D): FlightPhase | null {
+function horizontal(
+  from: Position3D,
+  to: Position3D,
+  uav: UavProfile = DEFAULT_PROFILE,
+): FlightPhase | null {
   const distance = haversineMeters(from, to);
   if (distance < 1e-9) return null;
   return {
     kind: 'cruising',
     from,
     to: { ...to, altitudeMeters: from.altitudeMeters },
-    durationSeconds: distance / cruiseSpeedMetersPerSecond,
+    durationSeconds: distance / uav.cruiseSpeedMetersPerSecond,
     distanceMeters: distance,
   };
 }
@@ -48,45 +56,56 @@ function horizontal(from: Position3D, to: Position3D): FlightPhase | null {
  * Phases to fly from `from` to `target`. Climb happens before the horizontal leg, descent
  * after it (RULES.md §3).
  */
-export function legPhases(from: Position3D, target: Position3D): FlightPhase[] {
+export function legPhases(
+  from: Position3D,
+  target: Position3D,
+  uav: UavProfile = DEFAULT_PROFILE,
+): FlightPhase[] {
   const phases: FlightPhase[] = [];
   let at = from;
   if (target.altitudeMeters > at.altitudeMeters) {
-    const climb = vertical(at, target.altitudeMeters);
+    const climb = vertical(at, target.altitudeMeters, uav);
     if (climb) {
       phases.push(climb);
       at = climb.to;
     }
   }
-  const cruise = horizontal(at, target);
+  const cruise = horizontal(at, target, uav);
   if (cruise) {
     phases.push(cruise);
     at = cruise.to;
   }
   if (target.altitudeMeters < at.altitudeMeters) {
-    const descent = vertical(at, target.altitudeMeters);
+    const descent = vertical(at, target.altitudeMeters, uav);
     if (descent) phases.push(descent);
   }
   return phases;
 }
 
 /** Return-to-home from any position: fly at the current altitude to home, then land. */
-export function returnHomePhases(from: Position3D, home: Position3D): FlightPhase[] {
+export function returnHomePhases(
+  from: Position3D,
+  home: Position3D,
+  uav: UavProfile = DEFAULT_PROFILE,
+): FlightPhase[] {
   const phases: FlightPhase[] = [];
-  const cruise = horizontal(from, home);
+  const cruise = horizontal(from, home, uav);
   let at = from;
   if (cruise) {
     phases.push(cruise);
     at = cruise.to;
   }
-  const landing = vertical(at, 0);
+  const landing = vertical(at, 0, uav);
   if (landing) phases.push(landing);
   return phases;
 }
 
 /** Descend and land where the drone is (abort). */
-export function landInPlacePhases(from: Position3D): FlightPhase[] {
-  const landing = vertical(from, 0);
+export function landInPlacePhases(
+  from: Position3D,
+  uav: UavProfile = DEFAULT_PROFILE,
+): FlightPhase[] {
+  const landing = vertical(from, 0, uav);
   return landing ? [landing] : [];
 }
 
@@ -98,7 +117,10 @@ export function sortedWaypoints(waypoints: readonly Waypoint[]): Waypoint[] {
  * The complete planned flight: take off at home, visit every waypoint in order (hovering at
  * each), return home and land. Requires at least one waypoint (home).
  */
-export function buildFlightPlan(waypoints: readonly Waypoint[]): FlightPhase[] {
+export function buildFlightPlan(
+  waypoints: readonly Waypoint[],
+  uav: UavProfile = DEFAULT_PROFILE,
+): FlightPhase[] {
   const ordered = sortedWaypoints(waypoints);
   const home = ordered[0];
   if (!home) return [];
@@ -106,13 +128,13 @@ export function buildFlightPlan(waypoints: readonly Waypoint[]): FlightPhase[] {
   const ground: Position3D = { ...home, altitudeMeters: 0 };
 
   const phases: FlightPhase[] = [];
-  const takeoff = vertical(ground, homeAir.altitudeMeters);
+  const takeoff = vertical(ground, homeAir.altitudeMeters, uav);
   if (takeoff) phases.push(takeoff);
 
   let at = homeAir;
   ordered.slice(1).forEach((waypoint, index) => {
     const target: Position3D = { ...waypoint };
-    const leg = legPhases(at, target);
+    const leg = legPhases(at, target, uav);
     const last = leg.at(-1);
     if (last) last.arrivesAtWaypoint = index + 1;
     phases.push(...leg);
@@ -127,11 +149,14 @@ export function buildFlightPlan(waypoints: readonly Waypoint[]): FlightPhase[] {
     at = target;
   });
 
-  phases.push(...legPhases(at, homeAir));
-  phases.push(...returnHomePhases(homeAir, homeAir));
+  phases.push(...legPhases(at, homeAir, uav));
+  phases.push(...returnHomePhases(homeAir, homeAir, uav));
   return phases;
 }
 
-export function phaseBatteryPercent(phase: Pick<FlightPhase, 'kind' | 'durationSeconds'>): number {
-  return RULES.batteryDrainPercentPerSecond[phase.kind] * phase.durationSeconds;
+export function phaseBatteryPercent(
+  phase: Pick<FlightPhase, 'kind' | 'durationSeconds'>,
+  uav: UavProfile = DEFAULT_PROFILE,
+): number {
+  return uav.batteryDrainPercentPerSecond[phase.kind] * phase.durationSeconds;
 }

@@ -1,5 +1,6 @@
 import {
   estimateMission,
+  getUavProfile,
   isEditable,
   RULES,
   type LatLon,
@@ -23,19 +24,21 @@ import {
   Txt,
 } from '../ui/primitives';
 import { useTheme } from '../ui/theme';
+import { UavPicker } from '../ui/UavPicker';
 
 const ALT_STEP = 10;
 
 export function PlannerScreen({ id, navigate }: { id: string; navigate: (r: Route) => void }) {
   const t = useTheme();
-  const { missions, renameMission, setWaypoints, startMission, deleteMission } = useStore();
+  const { missions, renameMission, setWaypoints, setUav, startMission, deleteMission } = useStore();
   const mission = missions.find((m) => m.id === id);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const waypoints = useMemo(
     () => [...(mission?.waypoints ?? [])].sort((a, b) => a.order - b.order),
     [mission],
   );
-  const estimate = useMemo(() => estimateMission(waypoints), [waypoints]);
+  const uav = getUavProfile(mission?.uavId);
+  const estimate = useMemo(() => estimateMission(waypoints, uav), [waypoints, uav]);
 
   if (!mission) {
     return (
@@ -117,6 +120,12 @@ export function PlannerScreen({ id, navigate }: { id: string; navigate: (r: Rout
           paddingVertical: 4,
         }}
       />
+
+      <Card>
+        <Txt variant="heading">UAV</Txt>
+        <UavPicker value={uav.id} onChange={(id) => setUav(mission.id, id)} disabled={!editable} />
+        <Txt variant="small">{uav.summary}</Txt>
+      </Card>
 
       <MissionMap
         height={340}

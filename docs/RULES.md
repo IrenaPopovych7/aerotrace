@@ -68,6 +68,31 @@ Battery drains at a fixed rate per second, depending on the flight phase:
 Every flight starts at **100 %**. With these rates a flight of about 20 minutes uses most of a battery, which is in
 the range of a small consumer quadcopter.
 
+### 3.1 UAV types
+
+Each mission flies one of three generic airframe classes. They are invented examples sized like common
+multirotors, not real products. Speeds and battery drain come from the selected type; everything else in this
+document (route limits, reserves, failsafes) is the same for all three. Constants live in
+`packages/contracts/src/uav.ts`.
+
+|                                               | Scout                     | Surveyor (default)        | Hauler                      |
+| --------------------------------------------- | ------------------------- | ------------------------- | --------------------------- |
+| Airframe                                      | Quadcopter                | Hexacopter                | Octocopter                  |
+| Motors                                        | 4                         | 6                         | 8                           |
+| Frame diagonal                                | 250 mm                    | 690 mm                    | 1 250 mm                    |
+| Take-off weight                               | 0.55 kg                   | 3.2 kg                    | 14 kg                       |
+| Battery                                       | 33 Wh                     | 222 Wh                    | 1 000 Wh                    |
+| Cruise speed                                  | 14 m/s                    | 10 m/s                    | 8 m/s                       |
+| Climb / descent                               | 5 / 3 m/s                 | 3 / 2 m/s                 | 2.5 / 1.5 m/s               |
+| Drain: climb / cruise / hover / descend (%/s) | 0.22 / 0.11 / 0.12 / 0.06 | 0.15 / 0.07 / 0.08 / 0.04 | 0.13 / 0.07 / 0.075 / 0.045 |
+| Hover power (derived)                         | ≈ 143 W                   | ≈ 639 W                   | ≈ 2 700 W                   |
+| Hover endurance (derived)                     | ≈ 14 min                  | ≈ 21 min                  | ≈ 22 min                    |
+
+Derived values: hover power = hover drain × battery capacity; endurance = 100 % ÷ hover drain. All three land
+between 190 and 260 W per kilogram in hover, a plausible range for electric multirotors; small props are the least
+efficient. Surveyor uses exactly the numbers in the table above (§3), so missions saved before UAV types existed
+fly unchanged. Missions without a `uavId` use Surveyor.
+
 ## 4. Estimates
 
 `POST /missions/:id/estimate` and the planner run **the same function** from `packages/contracts`, so they cannot

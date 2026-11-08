@@ -1,4 +1,4 @@
-import { estimateMission, type MissionStatus } from '@aerotrace/contracts';
+import { estimateMission, getUavProfile, type MissionStatus } from '@aerotrace/contracts';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import type { Route } from '../navigation';
@@ -79,7 +79,8 @@ export function MissionsScreen({ navigate }: { navigate: (r: Route) => void }) {
         </Card>
       ) : (
         visible.map((m) => {
-          const est = estimateMission(m.waypoints);
+          const uav = getUavProfile(m.uavId);
+          const est = estimateMission(m.waypoints, uav);
           const flight = flights.find((f) => f.missionId === m.id);
           const flown = flight !== undefined;
           return (
@@ -97,7 +98,7 @@ export function MissionsScreen({ navigate }: { navigate: (r: Route) => void }) {
                   <StatusBadge status={m.status} />
                 </Row>
                 <Txt variant="muted">
-                  {m.waypoints.length} waypoints
+                  {uav.name} ({uav.motorCount} motors) · {m.waypoints.length} waypoints
                   {m.waypoints.length > 1
                     ? ` · ${formatDistance(est.distanceMeters)} · ${formatDuration(est.durationSeconds)} · lands at ${est.batteryRemainingPercent}%`
                     : ''}

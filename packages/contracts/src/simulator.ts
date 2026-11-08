@@ -10,6 +10,7 @@ import { haversineMeters, interpolate, roundHalfAway, type Position3D } from './
 import { RULES } from './rules';
 import type { Mission, MissionCommand, MissionStatus, Telemetry } from './schemas';
 import { isTerminal, nextStatus, type MissionTrigger } from './stateMachine';
+import { getUavProfile, type UavProfile } from './uav';
 
 export type MissionEventType =
   | 'takeoff'
@@ -61,7 +62,7 @@ export type DemoInjection =
   { type: 'low_battery' } | { type: 'link_loss'; durationSeconds: number };
 
 export type SimulatorOptions = {
-  mission: Pick<Mission, 'id' | 'waypoints'>;
+  mission: Pick<Mission, 'id' | 'waypoints'> & { uavId?: string };
   seed: number;
   /** ISO timestamp of take-off. Simulated time is added to it, so output is deterministic. */
   startedAt: string;
@@ -93,11 +94,12 @@ export function createSimulator({ mission, seed, startedAt }: SimulatorOptions) 
     throw new Error('A mission needs at least two waypoints to fly');
   }
   const homeAir: Position3D = { ...home };
+  const uav: UavProfile = getUavProfile(mission.uavId);
   const random = createRandom(seed);
   const startMs = Date.parse(startedAt);
 
   let status: MissionStatus = 'active';
-  let phases: FlightPhase[] = buildFlightPlan(waypoints);
+  let phases: FlightPhase[] = buildFlightPlan(waypoints, uav);
   let phaseIndex = 0;
   let phaseElapsed = 0;
   let position: Position3D = { ...homeAir, altitudeMeters: 0 };
@@ -135,11 +137,11 @@ export function createSimulator({ mission, seed, startedAt }: SimulatorOptions) 
     if (!phase) return 0;
     switch (phase.kind) {
       case 'cruising':
-        return RULES.flight.cruiseSpeedMetersPerSecond;
+        return uav.cruiseSpeedMetersPerSecond;
       case 'climbing':
-        return RULES.flight.climbRateMetersPerSecond;
+        return uav.climbRateMetersPerSecond;
       case 'descending':
-        return RULES.flight.descentRateMetersPerSecond;
+        return uav.descentRateMetersPerSecond;
       default:
         return 0;
     }
@@ -199,7 +201,7 @@ export function createSimulator({ mission, seed, startedAt }: SimulatorOptions) 
   function startReturnHome(cause: ReturnHomeCause, trigger: MissionTrigger): boolean {
     if (!transition(trigger)) return false;
     returnHomeCause = cause;
-    if (cause !== 'route_finished') replacePlan(returnHomePhases(position, homeAir));
+    if (cause !== 'route_finished') replacePlan(returnHomePhases(position, homeAir, uav));
     const reason = {
       operator: 'Operator requested return home',
       battery: 'Critical battery: returning home automatically',
@@ -273,7 +275,7 @@ export function createSimulator({ mission, seed, startedAt }: SimulatorOptions) 
     }
 
     if (status === 'paused' && !aborting) {
-      battery -= RULES.batteryDrainPercentPerSecond.hovering * dt;
+      battery -= uav.batteryDrainPercentPerSecond.hovering * dt;
       checkBattery();
       return;
     }
@@ -303,7 +305,7 @@ export function createSimulator({ mission, seed, startedAt }: SimulatorOptions) 
       phaseElapsed += used;
       planElapsed += used;
       remaining -= used;
-      battery -= phaseBatteryPercent({ kind: phase.kind, durationSeconds: used });
+      battery -= phaseBatteryPercent({ kind: phase.kind, durationSeconds: used }, uav);
       position = interpolate(
         phase.from,
         phase.to,
@@ -399,7 +401,7 @@ export function createSimulator({ mission, seed, startedAt }: SimulatorOptions) 
           // Abort lands in place; the mission becomes `aborted` on touchdown (RULES.md §5).
           if (aborting || nextStatus(status, 'abort') === null) return false;
           aborting = true;
-          replacePlan(landInPlacePhases(position));
+          replacePlan(landInPlacePhases(position, uav));
           emit('abort_started', 'Abort: landing in place', 'warning');
           return true;
       }

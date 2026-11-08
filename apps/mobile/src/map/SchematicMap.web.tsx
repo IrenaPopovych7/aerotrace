@@ -1,5 +1,5 @@
 import { RULES, type LatLon } from '@aerotrace/contracts';
-import { useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from '../ui/theme';
 import { routeLine, type MissionMapProps } from './types';
 
@@ -21,8 +21,10 @@ const toLatLon = (px: number, py: number): LatLon => ({
   longitude: BOUNDS.west + px / METERS_PER_DEG_LON,
 });
 
-// Approximate Tagus (Tejo) shoreline along Parque das Nações, south → north.
+// Approximate Tagus (Tejo) shoreline along Parque das Nações, south → north (extended past the
+// bounds so any framing of the route still shows the river).
 const SHORE: [number, number][] = [
+  [38.74, -9.1],
   [38.757, -9.0945],
   [38.761, -9.0931],
   [38.7635, -9.0921],
@@ -31,7 +33,9 @@ const SHORE: [number, number][] = [
   [38.773, -9.0897],
   [38.7765, -9.0889],
   [38.781, -9.0874],
+  [38.8, -9.083],
 ];
+const FAR = 6000; // metres drawn beyond the bounds on every side
 
 const LANDMARKS: { name: string; lat: number; lon: number }[] = [
   { name: 'MEO Arena', lat: 38.7685, lon: -9.094 },
@@ -56,14 +60,57 @@ export function SchematicMap({
 }: MissionMapProps) {
   const t = useTheme();
   const svgRef = useRef<SVGSVGElement>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(360);
   const ordered = [...waypoints].sort((a, b) => a.order - b.order);
+
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    setWidth(el.clientWidth || 360);
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([entry]) => entry && setWidth(entry.contentRect.width || 360));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Frame the route once per screen: re-framing while editing would move the map under the finger.
+  const frame = useMemo(() => {
+    const pts: LatLon[] = [...waypoints, ...(flownPath ?? [])];
+    if (pts.length === 0) {
+      return {
+        cx: x(RULES.demo.mapCenter.longitude),
+        cy: y(RULES.demo.mapCenter.latitude),
+        spanX: 0,
+        spanY: 0,
+      };
+    }
+    const xs = pts.map((p) => x(p.longitude));
+    const ys = pts.map((p) => y(p.latitude));
+    return {
+      cx: (Math.min(...xs) + Math.max(...xs)) / 2,
+      cy: (Math.min(...ys) + Math.max(...ys)) / 2,
+      spanX: Math.max(...xs) - Math.min(...xs),
+      spanY: Math.max(...ys) - Math.min(...ys),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const aspect = Math.max(0.3, width / height);
+  const viewW = Math.max(1400, frame.spanX * 1.4 + 300, (frame.spanY * 1.4 + 400) * aspect);
+  const viewH = viewW / aspect;
+  const viewBox = [frame.cx - viewW / 2, frame.cy - viewH / 2, viewW, viewH]
+    .map((v) => v.toFixed(0))
+    .join(' ');
+  /** Symbol sizes are authored for a 1 650 m wide view; scale keeps them constant on screen. */
+  const k = viewW / 1650;
+
   const water =
-    `M${W} 0 ` +
+    `M${W + FAR} ${-FAR} ` +
     SHORE.slice()
       .reverse()
       .map(([lat, lon]) => `L${x(lon).toFixed(1)} ${y(lat).toFixed(1)}`)
       .join(' ') +
-    ` L${W} ${H} Z`;
+    ` L${W + FAR} ${H + FAR} Z`;
 
   const onClick = (event: React.MouseEvent<SVGSVGElement>) => {
     if (!onAddWaypoint || !svgRef.current) return;
@@ -79,17 +126,36 @@ export function SchematicMap({
   };
 
   const grid = [];
-  for (let gx = 250; gx < W; gx += 250)
+  for (let gx = -FAR; gx < W + FAR; gx += 250) {
     grid.push(
-      <line key={`x${gx}`} x1={gx} x2={gx} y1={0} y2={H} stroke={t.color.grid} strokeWidth={2} />,
+      <line
+        key={`x${gx}`}
+        x1={gx}
+        x2={gx}
+        y1={-FAR}
+        y2={H + FAR}
+        stroke={t.color.grid}
+        strokeWidth={2 * k}
+      />,
     );
-  for (let gy = 250; gy < H; gy += 250)
+  }
+  for (let gy = -FAR; gy < H + FAR; gy += 250) {
     grid.push(
-      <line key={`y${gy}`} x1={0} x2={W} y1={gy} y2={gy} stroke={t.color.grid} strokeWidth={2} />,
+      <line
+        key={`y${gy}`}
+        x1={-FAR}
+        x2={W + FAR}
+        y1={gy}
+        y2={gy}
+        stroke={t.color.grid}
+        strokeWidth={2 * k}
+      />,
     );
+  }
 
   return (
     <div
+      ref={box}
       style={{
         position: 'relative',
         height,
@@ -102,7 +168,7 @@ export function SchematicMap({
         ref={svgRef}
         role="img"
         aria-label={label}
-        viewBox={`0 0 ${W} ${H}`}
+        viewBox={viewBox}
         preserveAspectRatio="xMidYMid slice"
         width="100%"
         height="100%"
@@ -119,7 +185,7 @@ export function SchematicMap({
         <text
           x={x(-9.0855)}
           y={y(38.7705)}
-          fontSize={60}
+          fontSize={60 * k}
           fill={t.color.textMuted}
           fontStyle="italic"
         >
@@ -128,20 +194,20 @@ export function SchematicMap({
         {LANDMARKS.map((l) => (
           <g key={l.name}>
             <rect
-              x={x(l.lon) - 14}
-              y={y(l.lat) - 14}
-              width={28}
-              height={28}
-              rx={6}
+              x={x(l.lon) - 14 * k}
+              y={y(l.lat) - 14 * k}
+              width={28 * k}
+              height={28 * k}
+              rx={6 * k}
               fill={t.color.surface}
               stroke={t.color.textMuted}
-              strokeWidth={3}
+              strokeWidth={3 * k}
             />
             <text
-              x={x(l.lon) - 24}
-              y={y(l.lat) + 14}
+              x={x(l.lon) - 24 * k}
+              y={y(l.lat) + 14 * k}
               textAnchor="end"
-              fontSize={42}
+              fontSize={42 * k}
               fill={t.color.textMuted}
             >
               {l.name}
@@ -153,8 +219,8 @@ export function SchematicMap({
             d={path(routeLine(ordered))}
             fill="none"
             stroke={t.color.route}
-            strokeWidth={10}
-            strokeDasharray="28 18"
+            strokeWidth={10 * k}
+            strokeDasharray={`${28 * k} ${18 * k}`}
             strokeLinejoin="round"
           />
         )}
@@ -163,7 +229,7 @@ export function SchematicMap({
             d={path(flownPath)}
             fill="none"
             stroke={t.color.flown}
-            strokeWidth={12}
+            strokeWidth={12 * k}
             strokeLinejoin="round"
             strokeLinecap="round"
           />
@@ -182,16 +248,16 @@ export function SchematicMap({
               <circle
                 cx={x(wp.longitude)}
                 cy={y(wp.latitude)}
-                r={selected ? 46 : 38}
+                r={(selected ? 46 : 38) * k}
                 fill={i === 0 ? t.color.good : t.color.route}
                 stroke={t.color.surface}
-                strokeWidth={8}
+                strokeWidth={8 * k}
               />
               <text
                 x={x(wp.longitude)}
-                y={y(wp.latitude) + 15}
+                y={y(wp.latitude) + 15 * k}
                 textAnchor="middle"
-                fontSize={i === 0 ? 40 : 42}
+                fontSize={42 * k}
                 fontWeight={700}
                 fill="#fff"
               >
@@ -205,17 +271,17 @@ export function SchematicMap({
             <circle
               cx={x(drone.longitude)}
               cy={y(drone.latitude)}
-              r={60}
+              r={60 * k}
               fill={t.color.flown}
               opacity={0.25}
             />
             <circle
               cx={x(drone.longitude)}
               cy={y(drone.latitude)}
-              r={28}
+              r={28 * k}
               fill={t.color.flown}
               stroke="#fff"
-              strokeWidth={8}
+              strokeWidth={8 * k}
             />
           </g>
         )}
