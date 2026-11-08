@@ -1,44 +1,30 @@
-import { RULES } from '@aerotrace/contracts';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { useHashRoute } from './src/navigation';
+import { LiveScreen } from './src/screens/LiveScreen';
+import { MissionsScreen } from './src/screens/MissionsScreen';
+import { PlannerScreen } from './src/screens/PlannerScreen';
+import { ReportScreen } from './src/screens/ReportScreen';
+import { StoreProvider } from './src/state/store';
 
-/** Temporary shell. Replaced by Expo Router screens in backlog issue #7. */
-export default function App() {
-  const dark = useColorScheme() === 'dark';
-  const { latitude, longitude } = RULES.demo.mapCenter;
-
-  return (
-    <View style={[styles.container, dark && styles.containerDark]}>
-      <Text accessibilityRole="header" style={[styles.title, dark && styles.textDark]}>
-        AeroTrace
-      </Text>
-      <Text style={[styles.subtitle, dark && styles.textDark]}>
-        UAV mission planner and flight simulator
-      </Text>
-      <Text style={[styles.meta, dark && styles.textDark]}>
-        Demo area: Parque das Nações, Lisbon ({latitude.toFixed(4)}, {longitude.toFixed(4)})
-      </Text>
-      <Text style={[styles.safety, dark && styles.textDark]}>
-        Educational simulator only. Not flight-control software.
-      </Text>
-      <StatusBar style="auto" />
-    </View>
-  );
+function Router() {
+  const { route, navigate } = useHashRoute();
+  switch (route.name) {
+    case 'plan':
+      return <PlannerScreen key={route.id} id={route.id} navigate={navigate} />;
+    case 'live':
+      return <LiveScreen key={route.id} id={route.id} navigate={navigate} />;
+    case 'report':
+      return <ReportScreen key={route.id} id={route.id} navigate={navigate} />;
+    default:
+      return <MissionsScreen navigate={navigate} />;
+  }
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    gap: 8,
-  },
-  containerDark: { backgroundColor: '#0b1220' },
-  title: { fontSize: 32, fontWeight: '700', color: '#0b1220' },
-  subtitle: { fontSize: 16, color: '#334155', textAlign: 'center' },
-  meta: { fontSize: 13, color: '#475569', textAlign: 'center' },
-  safety: { marginTop: 16, fontSize: 12, color: '#64748b', textAlign: 'center' },
-  textDark: { color: '#e2e8f0' },
-});
+export default function App() {
+  return (
+    <StoreProvider>
+      <Router />
+      <StatusBar style="auto" />
+    </StoreProvider>
+  );
+}
